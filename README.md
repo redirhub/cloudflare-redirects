@@ -99,10 +99,12 @@ add your own logic, pass `origin: (request, env, ctx) => …`.
 | Option | |
 | --- | --- |
 | `settings(env)` | The rules address and the key from the Worker's bindings. Empty address: off, every request goes to the origin. |
+| `report` | `false`, or `(request) => boolean`: whether to report, over the key. Default: whenever there is a key. |
 | `origin(request, env, ctx)` | Where requests no rule answers go; default `fetch(request)`. |
 | `report404` | `rules` (default): 404s of hostnames with **Report 404 pages** on; `all`: every hostname the Worker serves. |
 | `hostname(request)` | The hostname to look up in the rules; `null` leaves the request alone (straight to the origin, nothing reported). Default the `Host` header. |
-| `path(request)` | The path the visitor asked for, percent-encoded; `null` leaves the request alone. Default the request URL's path. |
+| `path(request)` | The path to look up in the rules, percent-encoded; `null` leaves the request alone. Default the request URL's path. |
+| `location(location, request)` | The `Location` to send, from the one the rule gives; also the reported destination. |
 | `clientIp(request)` | The visitor's address in reports; default `CF-Connecting-IP`. `null` writes `-`. |
 | `userAgent(request)` | The User-Agent in reports; default the `User-Agent` header. `null` writes `-`. |
 | `anonymizeIp` | Report IPv4 with the last byte zeroed, IPv6 cut to /48. |
@@ -127,7 +129,8 @@ export default createWorker<Env>({
     const { pathname } = new URL(request.url)
     return pathname.startsWith('/api/') ? null : pathname
   },
-  userAgent: (request) => request.headers.get('user-agent'),
+  // Testing on workers.dev redirects, but is not reported.
+  report: (request) => !new URL(request.url).hostname.endsWith('.workers.dev'),
   anonymizeIp: true,
 })
 ```
