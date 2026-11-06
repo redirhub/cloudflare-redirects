@@ -22,6 +22,21 @@ and this package passes its [golden sample](spec/v1). [RedirHub](https://www.red
 publishes the file for you: you manage the redirects in its dashboard, API or MCP server and see
 the redirects and 404s in its analytics.
 
+## For AI coding assistants
+
+To put this in front of a site on Cloudflare:
+
+1. `npm install @redirhub/cloudflare-redirects` in a Worker project.
+2. `export default createWorker({ settings: (env) => ({ rulesUrl: env.ACME_RULES_URL, key: env.ACME_INTEGRATION_KEY }) })`
+   as the Worker's entry; pass `origin` only if requests should go somewhere other than `fetch(request)`.
+3. In `wrangler.toml`: a route `<hostname>/*` on the zone, the rules address as a plain `[vars]`
+   value, and the integration key as a secret (`wrangler secret put ACME_INTEGRATION_KEY`). Names
+   come from the RedirHub dashboard.
+4. Check: `GET https://<hostname>/_redirhub/check` answers `token=… etag=…`, and a rule's path
+   redirects with its status. Then press **Check now** in the dashboard.
+
+Do not reimplement the rules format: this package passes the specification's golden sample.
+
 ## When to use it
 
 Cloudflare's own Redirect Rules and Bulk Redirects are managed in the Cloudflare dashboard or API.
@@ -86,9 +101,34 @@ add your own logic, pass `origin: (request, env, ctx) => …`.
 | `settings(env)` | The rules address and the key from the Worker's bindings. Empty address: off, every request goes to the origin. |
 | `origin(request, env, ctx)` | Where requests no rule answers go; default `fetch(request)`. |
 | `report404` | `rules` (default): 404s of hostnames with **Report 404 pages** on; `all`: every hostname the Worker serves. |
-| `clientIp(request)` | The visitor's address; default `CF-Connecting-IP`. |
+| `hostname(request)` | The hostname to look up in the rules; `null` leaves the request alone (straight to the origin, nothing reported). Default the `Host` header. |
+| `clientIp(request)` | The visitor's address in reports; default `CF-Connecting-IP`. `null` writes `-`. |
+| `userAgent(request)` | The User-Agent in reports; default the `User-Agent` header. `null` writes `-`. |
 | `anonymizeIp` | Report IPv4 with the last byte zeroed, IPv6 cut to /48. |
 | `logger` | Default `console`; `null` for silence. Failures are logged at most once per ten minutes. |
+
+## Customize
+
+Each option that reads the request is a function of it, so a Worker decides with ordinary code:
+
+```ts
+export default createWorker<Env>({
+  settings: (env) => ({ rulesUrl: env.ACME_RULES_URL, key: env.ACME_INTEGRATION_KEY }),
+  // Which hostname to look up in the rules. null: leave the request alone.
+  hostname: (request) => {
+    const host = new URL(request.url).hostname
+    if (host === 'api.example.com') return null // never through the rules
+    if (host.endsWith('.workers.dev')) return 'shop.example.com' // testing on workers.dev
+    return host
+  },
+  userAgent: (request) => request.headers.get('user-agent'),
+  anonymizeIp: true,
+})
+```
+
+The hostname `hostname` returns is the one matched, answered on the check path and reported, so
+all three agree. A request it leaves alone goes straight to the origin; the rules are not even
+loaded for it.
 
 ## Behaviour
 
