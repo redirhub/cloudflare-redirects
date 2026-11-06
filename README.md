@@ -1,9 +1,13 @@
-# cloudflare-redirects
+# cloudflare-redirects: bulk redirects for Cloudflare Workers
 
-**Bulk redirects and 404 monitoring for [Cloudflare Workers](https://workers.cloudflare.com), from
-a remote rules file.** A Worker in front of your origin serves thousands of redirects from a rules
-file and reports every redirect and every 404 back, so broken links show up before your visitors
-find them.
+[![npm](https://img.shields.io/npm/v/@redirhub/cloudflare-redirects)](https://www.npmjs.com/package/@redirhub/cloudflare-redirects)
+[![CI](https://github.com/redirhub/cloudflare-redirects/actions/workflows/ci.yml/badge.svg)](https://github.com/redirhub/cloudflare-redirects/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
+**Serve thousands of 301 and 302 redirects from a [Cloudflare Worker](https://workers.cloudflare.com)
+in front of your origin, from a remote rules file, and monitor its 404s.** Old URLs, short links and
+whole website migrations redirect at Cloudflare's edge; every redirect and every 404 is reported
+back, so broken links show up before your visitors find them.
 
 - Redirects, short links and whole website migrations, live within a minute, without
   redeploying the Worker.
@@ -17,6 +21,15 @@ The rules file format is open: [Integration Mode format v1](https://github.com/r
 and this package passes its [golden sample](spec/v1). [RedirHub](https://www.redirhub.com)
 publishes the file for you: you manage the redirects in its dashboard, API or MCP server and see
 the redirects and 404s in its analytics.
+
+## When to use it
+
+Cloudflare's own Redirect Rules and Bulk Redirects are managed in the Cloudflare dashboard or API.
+This Worker is for redirect lists managed elsewhere, by people who do not touch Cloudflare: a
+website migration with thousands of old URLs, marketing and short links, the same rules across
+several zones or accounts. It also does what a list cannot: a catch-all only where your origin
+answers 404 (a working page is never taken over), and reports of every redirect and 404. The rules
+change in a dashboard, API or MCP server, and every isolate picks them up within a minute.
 
 ## Install
 
