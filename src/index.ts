@@ -4,7 +4,10 @@
  * 404 redirects to the catch-all or reports the 404.
  */
 
-import { createRedirects, type Redirects, type RedirectsOptions, type WaitUntil } from './core/redirects.ts'
+import { createRedirects as create, type Redirects, type RedirectsOptions, type WaitUntil } from './core/redirects.ts'
+
+export type { Logger } from './core/log.ts'
+export type { Redirects, RedirectsOptions, WaitUntil }
 
 export interface WorkerSettings {
   rulesUrl: string | null | undefined
@@ -37,34 +40,22 @@ export function createWorker<Env>(options: WorkerOptions<Env>): { fetch(request:
       const { rulesUrl, key } = settings(env)
       const id = `${rulesUrl ?? ''}\0${key ?? ''}`
       if (instance?.id !== id) {
-        instance = { id, redirects: createRedirects({ clientIp: cloudflareClientIp, ...rest, rulesUrl, key }) }
+        instance = { id, redirects: createRedirects({ ...rest, rulesUrl, key }) }
       }
       return instance.redirects.serve(request, (next) => origin(next, env, context), context)
     },
   }
 }
 
-/** `CF-Connecting-IP`, which Cloudflare sets. */
-export function cloudflareClientIp(request: Request): string | null {
-  return request.headers.get('cf-connecting-ip')
+/**
+ * The integration in two steps, for a Worker with its own routing: `handle` before the origin,
+ * `afterSite` after it, or `serve` for both. The visitor's address defaults to `CF-Connecting-IP`.
+ */
+export function createRedirects(options: RedirectsOptions): Redirects {
+  return create({ ...options, clientIp: options.clientIp ?? cloudflareClientIp })
 }
 
-export { anonymize, createRedirects, type Redirects, type RedirectsOptions, type WaitUntil } from './core/redirects.ts'
-export type { Logger } from './core/log.ts'
-export { hitLine, type Hit, type KeepAlive, Reporter, type ReporterOptions } from './core/report.ts'
-export {
-  buildLocation,
-  DEFAULT_CHECK_PATH,
-  FORMAT_MAJOR,
-  type HostRules,
-  matchExact,
-  matchPath,
-  normalizeHost,
-  parseRules,
-  type RedirectStatus,
-  type Rule,
-  type RuleSet,
-  UnknownFormatError,
-} from './core/rules.ts'
-export { RulesSource, type RulesSourceOptions } from './core/source.ts'
-export { PACKAGE, USER_AGENT, VERSION } from './version.ts'
+/** `CF-Connecting-IP`, which Cloudflare sets. */
+function cloudflareClientIp(request: Request): string | null {
+  return request.headers.get('cf-connecting-ip')
+}

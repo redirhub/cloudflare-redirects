@@ -108,10 +108,12 @@ Matching follows format v1: the hostname in any case, port ignored; the path cas
 percent-decoded, leading and trailing slashes ignored; scheme and query ignored. Every redirect
 carries `X-Powered-By` when the rules file has `@powered-by`.
 
-**Rules download.** The first request of an isolate downloads the file (5 second timeout) and
-waits for it; after that the copy in memory is used, and once it is older than `@refresh` seconds
-(60 by default) it is revalidated in `ctx.waitUntil` with `If-None-Match`, so no visitor waits.
-Any failure keeps the last good copy and waits 30 seconds before trying again. `@notify` (push) is
+**Rules download.** The first request of a new isolate starts the download and waits for it at
+most one second; if the rules server is slower, that request goes to the origin without rules and
+the download (5 second timeout) finishes in `ctx.waitUntil`. Requests that arrive meanwhile do not
+wait. After that the copy in memory is used, and once it is older than `@refresh` seconds (60 by
+default) it is revalidated in `ctx.waitUntil` with `If-None-Match`, so no visitor waits. Any
+failure keeps the last good copy and waits 30 seconds before trying again. `@notify` (push) is
 ignored: a Worker keeps no connection open.
 
 **Reports.** A line queued while nothing is being sent goes out at once; lines queued while a
@@ -139,7 +141,8 @@ rules file, with your key.
 
 ## Limits
 
-- The rules live in each isolate's memory: a new isolate waits for one download.
+- The rules live in each isolate's memory: a new isolate waits up to one second for them, and
+  serves no redirects until they arrive.
 - Changes are live within `@refresh` seconds per isolate (60 by default).
 - The rules file is at most 32 MB, and must fit the Worker's memory.
 

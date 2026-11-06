@@ -34,8 +34,13 @@ const context = () => {
 }
 
 describe('cloudflare', () => {
-  it('serves rules before the origin, the catch-all on its 404, and reads the bindings per request', async () => {
+  it('serves rules before the origin, the catch-all on its 404, and reads the bindings per request', async (t) => {
     const p = platform()
+    const original = globalThis.fetch
+    globalThis.fetch = p.fetch
+    t.after(() => {
+      globalThis.fetch = original
+    })
     const origin: string[] = []
     const worker = createWorker<{ RULES_URL?: string; KEY?: string }>({
       settings: (env) => ({ rulesUrl: env.RULES_URL, key: env.KEY }),
@@ -43,7 +48,6 @@ describe('cloudflare', () => {
         origin.push(new URL(request.url).pathname)
         return new Response('page', { status: new URL(request.url).pathname === '/exists' ? 200 : 404 })
       },
-      fetch: p.fetch,
       logger: null,
     })
     const env = { RULES_URL: RULES, KEY: 'k' }
