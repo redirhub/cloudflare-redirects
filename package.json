@@ -1,6 +1,6 @@
 {
   "name": "@redirhub/cloudflare-redirects",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Bulk redirects and 404 monitoring for Cloudflare Workers from a remote rules file: thousands of 301/302 redirects, short links and website migrations in front of your origin, live within a minute without a redeploy. RedirHub Integration Mode.",
   "keywords": [
     "cloudflare",
