@@ -102,6 +102,7 @@ add your own logic, pass `origin: (request, env, ctx) => …`.
 | `origin(request, env, ctx)` | Where requests no rule answers go; default `fetch(request)`. |
 | `report404` | `rules` (default): 404s of hostnames with **Report 404 pages** on; `all`: every hostname the Worker serves. |
 | `hostname(request)` | The hostname to look up in the rules; `null` leaves the request alone (straight to the origin, nothing reported). Default the `Host` header. |
+| `path(request)` | The path the visitor asked for, percent-encoded; `null` leaves the request alone. Default the request URL's path. |
 | `clientIp(request)` | The visitor's address in reports; default `CF-Connecting-IP`. `null` writes `-`. |
 | `userAgent(request)` | The User-Agent in reports; default the `User-Agent` header. `null` writes `-`. |
 | `anonymizeIp` | Report IPv4 with the last byte zeroed, IPv6 cut to /48. |
@@ -121,14 +122,20 @@ export default createWorker<Env>({
     if (host.endsWith('.workers.dev')) return 'shop.example.com' // testing on workers.dev
     return host
   },
+  // Paths that never go through the rules.
+  path: (request) => {
+    const { pathname } = new URL(request.url)
+    return pathname.startsWith('/api/') ? null : pathname
+  },
   userAgent: (request) => request.headers.get('user-agent'),
   anonymizeIp: true,
 })
 ```
 
-The hostname `hostname` returns is the one matched, answered on the check path and reported, so
-all three agree. A request it leaves alone goes straight to the origin; the rules are not even
-loaded for it.
+The hostname and path these return are the ones matched, answered on the check path, appended by
+a catch-all and reported, so they always agree. Options that identify the request (`hostname`,
+`path`) leave it alone on `null`: it goes straight to the origin, and the rules are not even loaded
+for it. Options that are only reported (`clientIp`, `userAgent`) write `-` on `null`.
 
 ## Behaviour
 
