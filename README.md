@@ -9,8 +9,8 @@ in front of your origin, from a remote rules file, and monitor its 404s.** Old U
 whole website migrations redirect at Cloudflare's edge; every redirect and every 404 is reported
 back, so broken links show up before your visitors find them.
 
-- Redirects, short links and whole website migrations, live within a minute, without
-  redeploying the Worker.
+- Redirects, short links, frame pages and whole website migrations, live within a minute,
+  without redeploying the Worker.
 - 404 monitoring: the origin's 404s that no rule redirected are reported in the background.
 - Fails open: no rules yet, a download error or a bug never breaks a page; the request goes on to
   the origin.
@@ -148,7 +148,7 @@ the origin unchanged.
 1. **Check path** (`/_redirhub/check`): `200`, `text/plain`, `Cache-Control: no-store`, body
    `token=<check token> etag=<ETag of the rules in use>`. It proves the hostname is yours and
    tells RedirHub which rules you serve.
-2. **Exact rules** redirect before the origin, even when the page exists.
+2. **Exact rules** redirect (or show their frame page) before the origin, even when the page exists.
 3. Otherwise the origin answers. Only when it answers **404** and the hostname has a **catch-all
    rule** (`{host}/*`), the 404 is discarded and the Worker redirects instead; a working page is
    never taken over. Without a catch-all, the 404 goes to the visitor and is reported when the
@@ -158,13 +158,24 @@ Matching follows format v1: the hostname in any case, port ignored; the path cas
 percent-decoded, leading and trailing slashes ignored; scheme and query ignored. Every redirect
 carries `X-Powered-By` when the rules file has `@powered-by`.
 
+**Frame pages.** A rule with status `frame` shows its target in a frame instead of redirecting:
+`200`, `text/html; charset=utf-8`, a page whose one full-window `<iframe>` loads the address a
+redirect would send (flags `p` and `q` applied), titled with the target's hostname; the visitor's
+address bar keeps their URL. It is matched like a redirect (an exact rule before the origin, a
+catch-all only on the origin's 404), carries `X-Powered-By` and is reported, with status `200`.
+HEAD gets the same status and headers without the page.
+
+**Options** in a rule's fifth column (`password=`, `destinations=`, `routing=`, `plugins=`, and any
+other) are ignored, as the format allows: the rule redirects, or shows its frame, to its target.
+
 **Rules download.** The first request of a new isolate starts the download and waits for it at
 most one second; if the rules server is slower, that request goes to the origin without rules and
 the download (5 second timeout) finishes in `ctx.waitUntil`. Requests that arrive meanwhile do not
 wait. After that the copy in memory is used, and once it is older than `@refresh` seconds (60 by
 default) it is revalidated in `ctx.waitUntil` with `If-None-Match`, so no visitor waits. Any
 failure keeps the last good copy and waits 30 seconds before trying again. `@notify` (push) is
-ignored: a Worker keeps no connection open.
+ignored: a Worker keeps no connection open. Rules downloads and reports identify themselves as
+`User-Agent: cloudflare-redirects/<version>`.
 
 **Reports.** A line queued while nothing is being sent goes out at once; lines queued while a
 request is out go together in the next one (at most 100 lines or 64 KB, gzip with
@@ -185,9 +196,10 @@ Each report is one Apache combined line with the absolute URL:
 That is the visitor's IP address (`CF-Connecting-IP`, or anonymized with `anonymizeIp`), the time
 (UTC), the method, the requested URL with its query string, the status, the response size, the
 Referer and the User-Agent (each cut to 1 KB); for a redirect also the rule's source and the
-`Location` sent. The protocol is always written `HTTP/1.1`. No cookies, other headers or bodies
-are sent. Only redirects, and 404s of hostnames with 404 reporting on, are reported; all other
-traffic stays between the visitor and your origin. Reports go only to the `@hits` address of your
+`Location` sent, for a frame page the rule's source and the frame's address. The protocol is
+always written `HTTP/1.1`. No cookies, other headers or bodies are sent. Only redirects, frame
+pages, and 404s of hostnames with 404 reporting on, are reported; all other traffic stays between
+the visitor and your origin. Reports go only to the `@hits` address of your
 rules file, with your key.
 
 ## Limits
