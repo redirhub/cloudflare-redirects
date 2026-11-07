@@ -168,10 +168,11 @@ ignored: a Worker keeps no connection open.
 
 **Reports.** A line queued while nothing is being sent goes out at once; lines queued while a
 request is out go together in the next one (at most 100 lines or 64 KB, gzip with
-`CompressionStream`, 2 second timeout). Only the request that starts sending waits for it, in
-`ctx.waitUntil`, for at most 10 seconds; the others only add their line, so no request waits on
-another's work. A failed or rejected batch is dropped, never retried; beyond 10,000 waiting lines,
-lines are dropped.
+`CompressionStream`, 2 second timeout), and each full batch opens another request, up to four at
+once. Only the request that starts sending waits for them, in `ctx.waitUntil`, for at most 10
+seconds; the others only add their line, so no request waits on another's work. A failed or
+rejected batch is dropped, never retried; beyond 10,000 waiting lines, lines are dropped. Dropped
+lines are logged at once, then at most every ten minutes with the total by reason.
 
 ## Privacy
 
